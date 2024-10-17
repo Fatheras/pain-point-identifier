@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comcast Customer Pain Points Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>Comcast Customer Pain Points Dashboard</h1>
+
+    <div id="topic-chart"></div>
+
+    <div id="sentiment-chart"></div>
+
+    <div id="sentiment-by-topic-chart"></div>
+
+    <h2>Insights and Recommendations</h2>
+    {% for topic in topic_labels %}
+        <h3>{{ topic }}</h3>
+        <p>{{ insights[topic] }}</p>
+    {% endfor %}
+
+    <h2>Sample Posts by Topic</h2>
+    {% for topic, posts in sample_posts.items() %}
+        <h3>{{ topic }}</h3>
+        <ul>
+            {% for post in posts %}
+                <li>{{ post }}</li>
+            {% endfor %}
+        </ul>
+    {% endfor %}
+
+    <script type="text/javascript">
+        var topicData = [{
+            x: {{ topic_labels | safe }},
+            y: {{ topic_values | safe }},
+            type: 'bar',
+            marker: {
+                color: '#1f77b4'
+            }
+        }];
+
+        var topicLayout = {
+            title: 'Topic Distribution',
+            xaxis: {
+                title: 'Topics',
+                tickangle: -45,
+                automargin: true
+            },
+            yaxis: {
+                title: 'Number of Posts'
+            },
+            margin: {
+                b: 150
+            }
+        };
+
+        Plotly.newPlot('topic-chart', topicData, topicLayout);
+
+        var sentimentData = [{
+            x: {{ sentiment_labels | safe }},
+            y: {{ sentiment_values | safe }},
+            type: 'bar',
+            marker: {
+                color: '#ff7f0e'
+            }
+        }];
+
+        var sentimentLayout = {
+            title: 'Sentiment Distribution',
+            xaxis: {
+                title: 'Sentiment'
+            },
+            yaxis: {
+                title: 'Number of Posts'
+            }
+        };
+
+        Plotly.newPlot('sentiment-chart', sentimentData, sentimentLayout);
+
+        var sentimentByTopic = {{ sentiment_by_topic | safe }};
+        var topics = Object.keys(sentimentByTopic);
+        var sentiments = ['Negative', 'Neutral', 'Positive'];
+
+        var data = [];
+        for (var i = 0; i < sentiments.length; i++) {
+            var sentiment = sentiments[i];
+            var values = [];
+            for (var j = 0; j < topics.length; j++) {
+                values.push(sentimentByTopic[topics[j]][sentiment] || 0);
+            }
+            data.push({
+                x: topics,
+                y: values,
+                name: sentiment,
+                type: 'bar'
+            });
+        }
+
+        var layout = {
+            barmode: 'stack',
+            title: 'Sentiment Distribution by Topic',
+            xaxis: {
+                title: 'Topics',
+                tickangle: -45,
+                automargin: true
+            },
+            yaxis: {
+                title: 'Number of Posts'
+            },
+            margin: {
+                b: 150
+            }
+        };
+
+        Plotly.newPlot('sentiment-by-topic-chart', data, layout);
+    </script>
+
+{% if topic_trends %}
+<div id="topic-trends-chart"></div>
+
+<script type="text/javascript">
+    var topicTrends = {{ topic_trends | safe }};
+    var dates = topicTrends['created_date'];
+
+    var data = [];
+    var topics = Object.keys(topicTrends).filter(key => key !== 'created_date');
+    for (var i = 0; i < topics.length; i++) {
+        var topic = topics[i];
+        data.push({
+            x: dates,
+            y: topicTrends[topic],
+            mode: 'lines',
+            name: topic
+        });
+    }
+
+    var layout = {
+        title: 'Topic Trends Over Time',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Number of Posts' }
+    };
+
+    Plotly.newPlot('topic-trends-chart', data, layout);
+</script>
+{% endif %}
+</body>
+</html>
