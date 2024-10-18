@@ -1,46 +1,46 @@
-import os
 import pandas as pd
-import numpy as np
-import re
+import os
 import nltk
-nltk.data.path.append('C:/Users/xset9/AppData/Roaming/nltk_data')
-
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+import re
 
-script_dir = os.path.dirname(__file__)
-csv_path = os.path.join(script_dir, '..', 'data', 'reddit_posts.csv')
-
-data = pd.read_csv(csv_path)
-data.drop_duplicates(subset='id', inplace=True)
-data.reset_index(drop=True, inplace=True)
-
-# combine title and body for further processing
-data['text'] = data['title'].fillna('') + ' ' + data['body'].fillna('')
-
-def clean_text(text):
-    text = text.lower()
-    text = re.sub(r'http\S+', '', text)  # remove URLs
-    text = re.sub(r'[^a-zA-Z\s]', '', text)  # remove punctuation and numbers
-    text = re.sub(r'\s+', ' ', text)  # remove extra whitespace
-    return text.strip()
-
-data['clean_text'] = data['text'].apply(clean_text)
-
-# download NLTK data files if not already present
+nltk.download('punkt_tab')
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
 
-stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
+stop_words = set(stopwords.words('english'))
 
 def preprocess_text(text):
-    tokens = nltk.word_tokenize(text, preserve_line=True)
+    text = text.lower()
+    # remove URLs
+    text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+    # remove email addresses
+    text = re.sub(r'\S*@\S*\s?', '', text)
+    # remove newlines
+    text = text.replace('\n', ' ')
+    # remove punctuation
+    text = re.sub(r'[^\w\s]', '', text)
+    # tokenize
+    tokens = nltk.word_tokenize(text)
+    # remove stopwords and lemmatize
     tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
+    # Join tokens back into a string
     return ' '.join(tokens)
 
-data['processed_text'] = data['clean_text'].apply(preprocess_text)
+if __name__ == "__main__":
+    script_dir = os.path.dirname(__file__)
+    input_csv_path = os.path.join(script_dir, '..', 'data', 'raw', 'reddit_posts.csv')
+    data = pd.read_csv(input_csv_path)
 
-data.to_csv('data/processed_reddit_posts.csv', index=False)
-print("Data preprocessing complete. Saved to processed_reddit_posts.csv.")
+    # remove any rows with missing 'text'
+    data.dropna(subset=['text'], inplace=True)
+    # remove non-English posts (simple heuristic)
+    data = data[data['text'].apply(lambda x: re.match(r'^[a-zA-Z0-9\s\.,!?\'\"]+$', x) is not None)]
+    data['processed_text'] = data['text'].apply(preprocess_text)
+
+    output_csv_path = os.path.join(script_dir, '..', 'data', 'processed', 'processed_reddit_posts.csv')
+    data.to_csv(output_csv_path, index=False)
+    print(f"Data saved to {output_csv_path}")

@@ -14,12 +14,12 @@ h2, h3 {
     color: #333;
 }
 
-#topic-chart, #sentiment-chart, #sentiment-by-topic-chart {
+#topic-chart, #sentiment-chart, #sentiment-by-topic-chart, #topic-trends-chart {
     width: 80%;
     margin: 40px auto;
 }
 
-#topic-chart, #sentiment-chart, #sentiment-by-topic-chart {
+#topic-chart, #sentiment-chart, #sentiment-by-topic-chart, #topic-trends-chart {
     height: 500px;
 }
 
