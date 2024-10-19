@@ -15,9 +15,14 @@ data = data[data['processed_text'].str.strip() != '']
 if 'processed_text' not in data.columns:
     raise ValueError("The column 'processed_text' was not found in the data.")
 
+# convert the 'processed_text' column to a list of documents
 documents = data['processed_text'].astype(str).tolist()
 
-topic_model = BERTopic(verbose=True)
+topic_model = BERTopic(
+    verbose=True,
+    min_topic_size=10,
+    nr_topics=None      # ensure topics are not merged
+)
 
 # fit the model
 topics, probs = topic_model.fit_transform(documents)
@@ -26,36 +31,33 @@ data['topic'] = topics
 
 topic_info = topic_model.get_topic_info()
 
-# TODO: manually assign descriptive labels based on topic contents
-# first, get top 10 words per topic for review
 topics_keywords = topic_model.get_topics()
 
-# create a mapping from topic number to descriptive label
 custom_labels = {}
 
 for topic_num in topics_keywords:
     if topic_num == -1:
-        continue
+        continue  # skip outliers
     top_words = [word for word, _ in topics_keywords[topic_num][:5]]
-    # TODO: manually assign labels after reviewing top words and sample posts
-    # For example => 
-    if 'internet' in top_words:
-        custom_labels[topic_num] = "Internet Connectivity Issues"
-    elif 'service' in top_words:
+    if 'internet' in top_words or 'speed' in top_words:
+        custom_labels[topic_num] = "Internet Speed Issues"
+    elif 'service' in top_words or 'customer' in top_words:
         custom_labels[topic_num] = "Customer Service Complaints"
-    elif 'billing' in top_words:
-        custom_labels[topic_num] = "Billing and Charges"
-    elif 'installation' in top_words:
-        custom_labels[topic_num] = "Equipment and Installation"
-    elif 'outage' in top_words:
+    elif 'billing' in top_words or 'charge' in top_words:
+        custom_labels[topic_num] = "Billing Issues"
+    elif 'outage' in top_words or 'disconnect' in top_words:
         custom_labels[topic_num] = "Service Outages"
+    elif 'installation' in top_words or 'equipment' in top_words:
+        custom_labels[topic_num] = "Installation and Equipment Problems"
+    elif 'modem' in top_words or 'router' in top_words:
+        custom_labels[topic_num] = "Modem and Router Issues"
+    elif 'contract' in top_words or 'cancel' in top_words:
+        custom_labels[topic_num] = "Contract and Cancellation Problems"
     else:
         custom_labels[topic_num] = "Other Issues"
 
-# map topics to custom labels
 data['topic_label'] = data['topic'].map(custom_labels)
 
-# extract common phrases for root cause analysis
 def get_top_phrases(texts, n=5):
     if not texts:
         return []
@@ -72,35 +74,27 @@ def get_top_phrases(texts, n=5):
         print(f"Error in get_top_phrases: {e}")
         return []
 
-# collect top phrases for each topic
 topic_phrases = {}
 
 for topic_label in data['topic_label'].unique():
     topic_texts = data[data['topic_label'] == topic_label]['processed_text'].dropna()
-    # convert to list and remove empty strings
     topic_texts = [text for text in topic_texts.tolist() if text.strip() != '']
     if not topic_texts:
         print(f"No valid texts found for topic '{topic_label}', skipping top phrases extraction.")
         topic_phrases[topic_label] = []
         continue
-    try:
-        top_phrases = get_top_phrases(topic_texts)
-        topic_phrases[topic_label] = top_phrases
-    except ValueError as e:
-        print(f"Could not extract top phrases for topic '{topic_label}': {e}")
-        topic_phrases[topic_label] = []
+    top_phrases = get_top_phrases(topic_texts)
+    topic_phrases[topic_label] = top_phrases
 
 output_csv_path = os.path.join(script_dir, '..', 'data', 'processed', 'topic_modelled_posts.csv')
 data.to_csv(output_csv_path, index=False)
 print(f"Topic modeling complete. Saved to {output_csv_path}.")
 
-# save the topic phrases for use in insights
 phrases_file = os.path.join(script_dir, '..', 'data', 'processed', 'topic_phrases.json')
 with open(phrases_file, 'w') as f:
     json.dump(topic_phrases, f)
 print(f"Top phrases per topic saved to {phrases_file}.")
 
-# save the topic model (optional)
 model_dir = os.path.join(script_dir, '..', 'models')
 os.makedirs(model_dir, exist_ok=True)
 model_path = os.path.join(model_dir, 'bertopic_model')

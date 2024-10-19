@@ -23,25 +23,27 @@ subreddits = [
 
 def collect_posts():
     posts = []
+    three_months_ago = datetime.datetime.now() - datetime.timedelta(days=90)
     for subreddit_name in subreddits:
         subreddit = reddit.subreddit(subreddit_name)
         print(f"Collecting posts from r/{subreddit_name}...")
         for keyword in keywords:
             print(f"Searching for keyword: '{keyword}'")
             try:
-                # use PRAW's search function with pagination
-                for submission in subreddit.search(keyword, limit=None, time_filter='month'):
-                    posts.append({
-                        'title': submission.title,
-                        'text': submission.selftext,
-                        'created_utc': submission.created_utc,
-                        'subreddit': subreddit_name,
-                        'url': submission.url,
-                        'num_comments': submission.num_comments,
-                        'score': submission.score
-                    })
-                    # respect Reddit's API rate limits
-                    time.sleep(0.1)
+                for submission in subreddit.search(keyword, limit=None, time_filter='year'):
+                    post_date = datetime.datetime.fromtimestamp(submission.created_utc)
+                    if post_date >= three_months_ago:
+                        posts.append({
+                            'title': submission.title,
+                            'text': submission.selftext,
+                            'created_utc': submission.created_utc,
+                            'subreddit': subreddit_name,
+                            'url': submission.url,
+                            'num_comments': submission.num_comments,
+                            'score': submission.score
+                        })
+                        # respect Reddit's API rate limits
+                        time.sleep(0.1)
             except Exception as e:
                 print(f"An error occurred: {e}")
                 continue
