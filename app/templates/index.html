@@ -1,196 +1,311 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Comcast Customer Pain Points Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
+    <!-- Include Plotly.js from CDN -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
-
 <body>
     <h1>Comcast Customer Pain Points Dashboard</h1>
 
+    <!-- Interactive Topic Selection -->
+    <div id="topic-selection">
+        <label for="topic-select">Select Topics:</label>
+        <select id="topic-select" multiple>
+            {% for topic in topic_labels %}
+                <option value="{{ topic }}" selected>{{ topic }}</option>
+            {% endfor %}
+        </select>
+        <button id="update-button">Update Charts</button>
+    </div>
+
+    <!-- Topic Priority List -->
+    <h2>Prioritized Topics</h2>
+    <ol>
+        {% for topic in prioritized_topics %}
+            <li>{{ topic }} ({{ topic_metrics[topic]['negative_percentage'] }}% Negative Sentiment)</li>
+        {% endfor %}
+    </ol>
+
+    <!-- Topic Distribution Chart -->
     <div id="topic-chart"></div>
 
+    <!-- Sentiment Distribution Chart -->
     <div id="sentiment-chart"></div>
 
+    <!-- Sentiment by Topic Chart -->
     <div id="sentiment-by-topic-chart"></div>
 
+    <!-- Topic Trends Over Time -->
     <div id="topic-trends-chart"></div>
 
+    <!-- Sentiment Trends Over Time -->
     <h2>Sentiment Trends Over Time</h2>
     <div id="sentiment-trends-chart"></div>
 
+    <!-- Insights Section -->
     <h2>Insights and Recommendations</h2>
-    {% for topic in topic_labels %}
-    <h3>{{ topic }}</h3>
-    <p><strong>Number of Complaints:</strong> {{ topic_metrics[topic]['complaint_count'] }}</p>
-    <p><strong>Negative Sentiment Percentage:</strong> {{ topic_metrics[topic]['negative_percentage'] }}%</p>
-    <p>{{ insights.get(topic, "No insights available yet.") }}</p>
-    <!-- Display Keyword Analysis -->
-    <p><strong>Frequent Keywords in Negative Posts:</strong> {{ keyword_data[topic] | join(', ') }}</p>
+    {% for topic in prioritized_topics %}
+        <h3>{{ topic }}</h3>
+        <p><strong>Number of Complaints:</strong> {{ topic_metrics[topic]['complaint_count'] }}</p>
+        <p><strong>Negative Sentiment Percentage:</strong> {{ topic_metrics[topic]['negative_percentage'] }}%</p>
+        <p>{{ insights.get(topic, "No insights available yet.") }}</p>
+        <!-- Display Keyword Analysis -->
+        <p><strong>Frequent Keywords in Negative Posts:</strong> {{ keyword_data[topic] | join(', ') }}</p>
     {% endfor %}
 
-    <h2>Sample Posts by Topic</h2>
-    <div class="sample-posts-container">
-        {% for topic, posts in sample_posts.items() %}
+    <!-- Impactful Posts Section -->
+    <h2>Impactful Posts by Topic</h2>
+    {% for topic, posts in impactful_posts.items() %}
         <h3>{{ topic }}</h3>
-        <div class="sample-posts">
-            <ul>
-                {% for post in posts %}
-                <li>{{ post }}</li>
-                {% endfor %}
-            </ul>
+        <div class="impactful-posts-container">
+            <div class="impactful-posts">
+                <ul>
+                    {% for post in posts %}
+                        <li>{{ post }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
-        {% endfor %}
-    </div>
+    {% endfor %}
 
     <script type="text/javascript">
+        // Prepare data for interactive charts
+        var topicLabels = {{ topic_labels | safe }};
+        var topicValues = {{ topic_values | safe }};
+        var sentimentLabels = {{ sentiment_labels | safe }};
+        var sentimentValues = {{ sentiment_values | safe }};
+        var sentimentByTopic = {{ sentiment_by_topic | safe }};
+        var dailyTrends = {{ daily_trends | safe }};
+        var sentimentTrends = {{ sentiment_trends | safe }};
+
+        // Initialize selected topics (all topics by default)
+        var selectedTopics = topicLabels.slice();
+
+        // Function to update charts based on selected topics
+        function updateCharts() {
+            // Get selected topics from the dropdown
+            var selectElement = document.getElementById('topic-select');
+            selectedTopics = Array.from(selectElement.selectedOptions).map(option => option.value);
+
+            // Update Topic Distribution Chart
+            var filteredTopicValues = [];
+            for (var i = 0; i < topicLabels.length; i++) {
+                if (selectedTopics.includes(topicLabels[i])) {
+                    filteredTopicValues.push(topicValues[i]);
+                } else {
+                    filteredTopicValues.push(0);
+                }
+            }
+            Plotly.restyle('topic-chart', 'y', [filteredTopicValues]);
+
+            // Update Sentiment Distribution Chart
+            var filteredSentimentValues = [];
+            for (var i = 0; i < sentimentLabels.length; i++) {
+                var sentiment = sentimentLabels[i];
+                var total = 0;
+                for (var j = 0; j < topicLabels.length; j++) {
+                    if (selectedTopics.includes(topicLabels[j])) {
+                        total += sentimentByTopic[topicLabels[j]][sentiment] || 0;
+                    }
+                }
+                filteredSentimentValues.push(total);
+            }
+            Plotly.restyle('sentiment-chart', 'values', [filteredSentimentValues]);
+
+            // Update Sentiment by Topic Chart
+            var sentiments = ['Negative', 'Neutral', 'Positive'];
+            var data = [];
+            for (var i = 0; i < sentiments.length; i++) {
+                var sentiment = sentiments[i];
+                var values = [];
+                for (var j = 0; j < topicLabels.length; j++) {
+                    if (selectedTopics.includes(topicLabels[j])) {
+                        values.push(sentimentByTopic[topicLabels[j]][sentiment] || 0);
+                    } else {
+                        values.push(0);
+                    }
+                }
+                data.push({
+                    x: topicLabels,
+                    y: values,
+                    name: sentiment,
+                    type: 'bar'
+                });
+            }
+            var layout = {
+                barmode: 'stack',
+                title: 'Sentiment Distribution by Topic',
+                xaxis: { title: 'Topics', tickangle: -45, automargin: true },
+                yaxis: { title: 'Number of Posts' },
+                margin: { b: 150 }
+            };
+            Plotly.newPlot('sentiment-by-topic-chart', data, layout);
+
+            // Update Topic Trends Over Time
+            var dates = dailyTrends['created_date'];
+            var trendData = [];
+            for (var i = 0; i < topicLabels.length; i++) {
+                var topic = topicLabels[i];
+                if (selectedTopics.includes(topic)) {
+                    trendData.push({
+                        x: dates,
+                        y: dailyTrends[topic],
+                        mode: 'lines',
+                        name: topic
+                    });
+                }
+            }
+            var trendLayout = {
+                title: 'Daily Complaint Trends by Topic',
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Number of Complaints' }
+            };
+            Plotly.newPlot('topic-trends-chart', trendData, trendLayout);
+
+            // Update Sentiment Trends Over Time
+            var dates = Object.keys(sentimentTrends);
+            var trendData = [];
+            var sentiments = ['Negative', 'Neutral', 'Positive'];
+            for (var i = 0; i < selectedTopics.length; i++) {
+                var topic = selectedTopics[i];
+                for (var j = 0; j < sentiments.length; j++) {
+                    var sentiment = sentiments[j];
+                    var key = topic + '-' + sentiment;
+                    var y_values = [];
+                    for (var k = 0; k < dates.length; k++) {
+                        var date = dates[k];
+                        var value = (sentimentTrends[date][key]) || 0;
+                        y_values.push(value);
+                    }
+                    trendData.push({
+                        x: dates,
+                        y: y_values,
+                        mode: 'lines',
+                        name: key
+                    });
+                }
+            }
+            var trendLayout = {
+                title: 'Sentiment Trends Over Time',
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Number of Posts' }
+            };
+            Plotly.newPlot('sentiment-trends-chart', trendData, trendLayout);
+        }
+
+        // Event listener for the update button
+        document.getElementById('update-button').addEventListener('click', updateCharts);
+
+        // Initialize charts
         // Topic Distribution Chart
         var topicData = [{
-            x: {{ topic_labels | safe }},
-            y: {{ topic_values | safe }},
-
-        type: 'bar',
-            marker: {
-            color: '#1f77b4'
-        }
+            x: topicLabels,
+            y: topicValues,
+            type: 'bar',
+            marker: { color: '#1f77b4' }
         }];
-
         var topicLayout = {
             title: 'Topic Distribution',
-            xaxis: {
-                title: 'Topics',
-                tickangle: -45,
-                automargin: true
-            },
-            yaxis: {
-                title: 'Number of Posts'
-            },
-            margin: {
-                b: 150
-            }
+            xaxis: { title: 'Topics', tickangle: -45, automargin: true },
+            yaxis: { title: 'Number of Posts' },
+            margin: { b: 150 }
         };
-
         Plotly.newPlot('topic-chart', topicData, topicLayout);
 
         // Sentiment Distribution Chart
         var sentimentData = [{
-            x: {{ sentiment_labels | safe }},
-        y: {{ sentiment_values | safe }},
-
-        type: 'bar',
-            marker: {
-            color: '#ff7f0e'
-        }
+            labels: sentimentLabels,
+            values: sentimentValues,
+            type: 'pie',
+            marker: { colors: ['#d62728', '#2ca02c', '#ff7f0e'] }
         }];
-
         var sentimentLayout = {
-            title: 'Sentiment Distribution',
-            xaxis: {
-                title: 'Sentiment'
-            },
-            yaxis: {
-                title: 'Number of Posts'
-            }
+            title: 'Sentiment Distribution'
         };
-
         Plotly.newPlot('sentiment-chart', sentimentData, sentimentLayout);
 
         // Sentiment by Topic Chart
-        var sentimentByTopic = {{ sentiment_by_topic | safe }};
-        var topics = Object.keys(sentimentByTopic);
         var sentiments = ['Negative', 'Neutral', 'Positive'];
-
         var data = [];
         for (var i = 0; i < sentiments.length; i++) {
             var sentiment = sentiments[i];
             var values = [];
-            for (var j = 0; j < topics.length; j++) {
-                values.push(sentimentByTopic[topics[j]][sentiment] || 0);
+            for (var j = 0; j < topicLabels.length; j++) {
+                values.push(sentimentByTopic[topicLabels[j]][sentiment] || 0);
             }
             data.push({
-                x: topics,
+                x: topicLabels,
                 y: values,
                 name: sentiment,
                 type: 'bar'
             });
         }
-
         var layout = {
             barmode: 'stack',
             title: 'Sentiment Distribution by Topic',
-            xaxis: {
-                title: 'Topics',
-                tickangle: -45,
-                automargin: true
-            },
-            yaxis: {
-                title: 'Number of Posts'
-            },
-            margin: {
-                b: 150
-            }
+            xaxis: { title: 'Topics', tickangle: -45, automargin: true },
+            yaxis: { title: 'Number of Posts' },
+            margin: { b: 150 }
         };
-
         Plotly.newPlot('sentiment-by-topic-chart', data, layout);
 
         // Topic Trends Over Time
-        var dailyTrends = {{ daily_trends | safe }};
         var dates = dailyTrends['created_date'];
-        var data = [];
-        var topics = Object.keys(dailyTrends).filter(key => key !== 'created_date');
-        for (var i = 0; i < topics.length; i++) {
-            var topic = topics[i];
-            data.push({
+        var trendData = [];
+        for (var i = 0; i < topicLabels.length; i++) {
+            var topic = topicLabels[i];
+            trendData.push({
                 x: dates,
                 y: dailyTrends[topic],
                 mode: 'lines',
                 name: topic
             });
         }
-        var layout = {
+        var trendLayout = {
             title: 'Daily Complaint Trends by Topic',
             xaxis: { title: 'Date' },
             yaxis: { title: 'Number of Complaints' }
         };
-        Plotly.newPlot('topic-trends-chart', data, layout);
+        Plotly.newPlot('topic-trends-chart', trendData, trendLayout);
 
         // Sentiment Trends Over Time
-        var sentimentTrends = {{ sentiment_trends | safe }};
         var dates = Object.keys(sentimentTrends);
-        var data = [];
-        var topics = {{ topic_labels | safe }};
+        var trendData = [];
         var sentiments = ['Negative', 'Neutral', 'Positive'];
-
-        for (var i = 0; i < topics.length; i++) {
+        for (var i = 0; i < topicLabels.length; i++) {
+            var topic = topicLabels[i];
             for (var j = 0; j < sentiments.length; j++) {
-                var topic = topics[i];
                 var sentiment = sentiments[j];
                 var key = topic + '-' + sentiment;
                 var y_values = [];
                 for (var k = 0; k < dates.length; k++) {
                     var date = dates[k];
-                    var value = sentimentTrends[date][key] || 0;
+                    var value = (sentimentTrends[date][key]) || 0;
                     y_values.push(value);
                 }
-                data.push({
+                trendData.push({
                     x: dates,
                     y: y_values,
                     mode: 'lines',
-                    name: topic + ' - ' + sentiment
+                    name: key
                 });
             }
         }
-
-        var layout = {
+        var trendLayout = {
             title: 'Sentiment Trends Over Time',
             xaxis: { title: 'Date' },
             yaxis: { title: 'Number of Posts' }
         };
-        Plotly.newPlot('sentiment-trends-chart', data, layout);
+        Plotly.newPlot('sentiment-trends-chart', trendData, trendLayout);
 
+        // Debugging: Log data structures
+        console.log('Topic Labels:', topicLabels);
+        console.log('Sentiment Labels:', sentimentLabels);
+        console.log('Sentiment By Topic:', sentimentByTopic);
+        console.log('Daily Trends:', dailyTrends);
+        console.log('Sentiment Trends:', sentimentTrends);
     </script>
 </body>
-
 </html>

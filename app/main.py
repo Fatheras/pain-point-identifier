@@ -1,3 +1,5 @@
+# app/main.py
+
 import os
 import pandas as pd
 from fastapi import FastAPI, Request
@@ -6,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import json
 from sklearn.feature_extraction.text import CountVectorizer
-
+from nltk.sentiment import SentimentIntensityAnalyzer
 
 app = FastAPI()
 
@@ -19,12 +21,21 @@ phrases_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'processed'
 
 data = pd.read_csv(data_file)
 
-required_columns = ['topic_label', 'sentiment', 'text', 'created_utc', 'processed_text']
+# remove entries with NaN in topic_label
+data = data.dropna(subset=['topic_label'])
+
+# ensure that the necessary columns exist
+required_columns = ['topic_label', 'sentiment', 'text', 'created_utc', 'processed_text', 'score', 'num_comments']
 if not all(col in data.columns for col in required_columns):
     raise ValueError(f"Required columns are missing from the data: {required_columns}")
 
 with open(phrases_file, 'r') as f:
     topic_phrases = json.load(f)
+
+# if sentiment_score is not already included
+if 'sentiment_score' not in data.columns:
+    sia = SentimentIntensityAnalyzer()
+    data['sentiment_score'] = data['text'].astype(str).apply(lambda x: sia.polarity_scores(x)['compound'])
 
 # prepare data for visualization
 def prepare_data():
@@ -43,11 +54,22 @@ def prepare_data():
     sample_posts = {}
     for topic in data['topic_label'].unique():
         posts = data[data['topic_label'] == topic]['text'].dropna().tolist()
-        # remove empty strings
         posts = [post for post in posts if post.strip() != '']
-        # get the top 5 posts
         posts = posts[:5]
         sample_posts[topic] = posts
+
+    # identify impactful posts by topic using sentiment_score
+    impactful_posts = {}
+    for topic in data['topic_label'].unique():
+        # filter negative posts for the topic
+        topic_data = data[(data['topic_label'] == topic) & (data['sentiment'] == 'Negative')]
+        # sort by sentiment_score (more negative first)
+        topic_data = topic_data.sort_values(by='sentiment_score')
+        # get the top 3 impactful posts
+        posts = topic_data['text'].dropna().tolist()
+        posts = [post for post in posts if post.strip() != '']
+        posts = posts[:3]
+        impactful_posts[topic] = posts
 
     return {
         'topic_labels': topic_labels,
@@ -55,7 +77,8 @@ def prepare_data():
         'sentiment_labels': sentiment_labels,
         'sentiment_values': sentiment_values,
         'sentiment_by_topic': sentiment_by_topic_dict,
-        'sample_posts': sample_posts
+        'sample_posts': sample_posts,
+        'impactful_posts': impactful_posts
     }
 
 insights_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'insights.json')
@@ -75,8 +98,18 @@ def calculate_topic_metrics():
         }
     return topic_metrics
 
+# prioritize topics by severity (negative complaint count)
+def prioritize_topics():
+    priority_scores = {}
+    for topic in data['topic_label'].unique():
+        topic_data = data[data['topic_label'] == topic]
+        negative_count = len(topic_data[topic_data['sentiment'] == 'Negative'])
+        priority_scores[topic] = negative_count
+    # Sort topics by negative_count in descending order
+    sorted_topics = sorted(priority_scores.items(), key=lambda x: x[1], reverse=True)
+    return [topic for topic, _ in sorted_topics]
+
 def prepare_trend_data():
-    # convert 'created_utc' to datetime
     data['created_date'] = pd.to_datetime(data['created_utc'], unit='s').dt.date
 
     # calculate daily complaint counts per topic
@@ -101,11 +134,9 @@ def prepare_sentiment_trends():
         fill_value=0
     )
 
-    # convert the index and columns to strings for JSON serialization
     sentiment_trends_pivot.index = sentiment_trends_pivot.index.astype(str)
     sentiment_trends_pivot.columns = [f"{topic}-{sentiment}" for topic, sentiment in sentiment_trends_pivot.columns]
 
-    # convert to dictionary with dates as keys
     sentiment_trends_dict = sentiment_trends_pivot.to_dict(orient='index')
 
     return sentiment_trends_dict
@@ -130,6 +161,7 @@ data_dict['topic_metrics'] = calculate_topic_metrics()
 data_dict['daily_trends'] = prepare_trend_data()
 data_dict['sentiment_trends'] = prepare_sentiment_trends()
 data_dict['keyword_data'] = prepare_keyword_data()
+data_dict['prioritized_topics'] = prioritize_topics()
 
 @app.get("/", response_class=HTMLResponse)
 async def read_dashboard(request: Request):
