@@ -160,5 +160,6 @@ cython_debug/
 #.idea/
 
 /comcast_env
-/data
+/data/processed
+/data/raw
 /models/

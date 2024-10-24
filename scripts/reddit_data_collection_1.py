@@ -23,16 +23,16 @@ subreddits = [
 
 def collect_posts():
     posts = []
-    three_months_ago = datetime.datetime.now() - datetime.timedelta(days=90)
+    one_year_ago = datetime.datetime.now() - datetime.timedelta(days=365)
     for subreddit_name in subreddits:
         subreddit = reddit.subreddit(subreddit_name)
         print(f"Collecting posts from r/{subreddit_name}...")
         for keyword in keywords:
             print(f"Searching for keyword: '{keyword}'")
             try:
-                for submission in subreddit.search(keyword, limit=None, time_filter='year'):
+                for submission in subreddit.search(keyword, limit=None, time_filter='year', sort='new'):
                     post_date = datetime.datetime.fromtimestamp(submission.created_utc)
-                    if post_date >= three_months_ago:
+                    if post_date >= one_year_ago:
                         posts.append({
                             'title': submission.title,
                             'text': submission.selftext,

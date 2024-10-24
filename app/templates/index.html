@@ -2,74 +2,199 @@
 <html>
 <head>
     <title>Comcast Customer Pain Points Dashboard</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/style.css">
-    <!-- Include Plotly.js from CDN -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
-    <h1>Comcast Customer Pain Points Dashboard</h1>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="#">Comcast Dashboard</a>
+    </nav>
 
-    <!-- Interactive Topic Selection -->
-    <div id="topic-selection">
-        <label for="topic-select">Select Topics:</label>
-        <select id="topic-select" multiple>
-            {% for topic in topic_labels %}
-                <option value="{{ topic }}" selected>{{ topic }}</option>
-            {% endfor %}
-        </select>
-        <button id="update-button">Update Charts</button>
-    </div>
+    <div class="container">
+        <h1 class="text-center my-4">Comcast Customer Pain Points Dashboard</h1>
 
-    <!-- Topic Priority List -->
-    <h2>Prioritized Topics</h2>
-    <ol>
-        {% for topic in prioritized_topics %}
-            <li>{{ topic }} ({{ topic_metrics[topic]['negative_percentage'] }}% Negative Sentiment)</li>
-        {% endfor %}
-    </ol>
-
-    <!-- Topic Distribution Chart -->
-    <div id="topic-chart"></div>
-
-    <!-- Sentiment Distribution Chart -->
-    <div id="sentiment-chart"></div>
-
-    <!-- Sentiment by Topic Chart -->
-    <div id="sentiment-by-topic-chart"></div>
-
-    <!-- Topic Trends Over Time -->
-    <div id="topic-trends-chart"></div>
-
-    <!-- Sentiment Trends Over Time -->
-    <h2>Sentiment Trends Over Time</h2>
-    <div id="sentiment-trends-chart"></div>
-
-    <!-- Insights Section -->
-    <h2>Insights and Recommendations</h2>
-    {% for topic in prioritized_topics %}
-        <h3>{{ topic }}</h3>
-        <p><strong>Number of Complaints:</strong> {{ topic_metrics[topic]['complaint_count'] }}</p>
-        <p><strong>Negative Sentiment Percentage:</strong> {{ topic_metrics[topic]['negative_percentage'] }}%</p>
-        <p>{{ insights.get(topic, "No insights available yet.") }}</p>
-        <!-- Display Keyword Analysis -->
-        <p><strong>Frequent Keywords in Negative Posts:</strong> {{ keyword_data[topic] | join(', ') }}</p>
-    {% endfor %}
-
-    <!-- Impactful Posts Section -->
-    <h2>Impactful Posts by Topic</h2>
-    {% for topic, posts in impactful_posts.items() %}
-        <h3>{{ topic }}</h3>
-        <div class="impactful-posts-container">
-            <div class="impactful-posts">
-                <ul>
-                    {% for post in posts %}
-                        <li>{{ post }}</li>
-                    {% endfor %}
-                </ul>
+        <!-- Interactive Topic Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Filter Topics</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <label for="topic-select"><strong>Select Topics:</strong></label>
+                        <select id="topic-select" multiple class="form-control">
+                            {% for topic in topic_labels %}
+                                <option value="{{ topic }}" selected>{{ topic }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 align-self-end">
+                        <button id="update-button" class="btn btn-primary mt-2">Update Charts</button>
+                    </div>
+                </div>
             </div>
         </div>
-    {% endfor %}
 
+        <!-- Topic Priority List -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>Prioritized Topics</h3>
+            </div>
+            <div class="card-body">
+                <ol>
+                    {% for topic in prioritized_topics %}
+                        <li>{{ topic }} ({{ topic_metrics[topic]['negative_percentage'] }}% Negative Sentiment)</li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="row">
+            <div class="col-md-6">
+                <!-- Topic Distribution Chart -->
+                <div class="card my-4">
+                    <div class="card-header">
+                        <h3>Topic Distribution</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="topic-chart"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <!-- Sentiment Distribution Chart -->
+                <div class="card my-4">
+                    <div class="card-header">
+                        <h3>Sentiment Distribution</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="sentiment-chart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sentiment Distribution by Topic Chart -->
+        <div class="card my-4">
+            <div class="card-header">
+                <h3>Sentiment Distribution by Topic</h3>
+            </div>
+            <div class="card-body">
+                <div id="sentiment-by-topic-chart"></div>
+            </div>
+        </div>
+
+        <!-- Topic Trends Over Time Chart -->
+        <div class="card my-4">
+            <div class="card-header">
+                <h3>Daily Complaint Trends by Topic</h3>
+            </div>
+            <div class="card-body">
+                <div id="topic-trends-chart"></div>
+            </div>
+        </div>
+
+        <!-- Sentiment Trends Over Time Chart -->
+        <div class="card my-4">
+            <div class="card-header">
+                <h3>Sentiment Trends Over Time</h3>
+            </div>
+            <div class="card-body">
+                <div id="sentiment-trends-chart"></div>
+            </div>
+        </div>
+
+        <!-- Complaint Volume Forecast Chart -->
+        <div class="card my-4">
+            <div class="card-header">
+                <h3>Complaint Volume Forecast</h3>
+            </div>
+            <div class="card-body">
+                <div id="forecast-chart"></div>
+            </div>
+        </div>
+
+        <!-- Insights Section -->
+        <h2>Insights and Recommendations</h2>
+        <div class="mb-2">
+            <button class="btn btn-secondary btn-sm" id="expand-all">Expand All</button>
+            <button class="btn btn-secondary btn-sm" id="collapse-all">Collapse All</button>
+        </div>
+        {% for topic in prioritized_topics %}
+            <div class="card my-3">
+                <div class="card-header">
+                    <h3>
+                        <button class="btn btn-block text-left topic-header" type="button" data-toggle="collapse" data-target="#collapse-{{ loop.index }}" aria-expanded="false" aria-controls="collapse-{{ loop.index }}">
+                            {{ topic }}
+                        </button>
+                    </h3>
+                </div>
+                <div id="collapse-{{ loop.index }}" class="collapse">
+                    <div class="card-body">
+                        <p><strong>Number of Complaints:</strong> {{ topic_metrics[topic]['complaint_count'] }}</p>
+                        <p><strong>Negative Sentiment Percentage:</strong> {{ topic_metrics[topic]['negative_percentage'] }}%</p>
+                        <p>{{ insights.get(topic, "No insights available yet.") }}</p>
+                        <p><strong>Frequent Keywords in Negative Posts:</strong> {{ keyword_data[topic] | join(', ') }}</p>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+
+        <!-- Impactful Posts Section -->
+        <h2>Impactful Posts by Topic</h2>
+        {% for topic in impactful_posts %}
+            {% set topic_index = loop.index0 %}
+            <div class="card my-3">
+                <div class="card-header">
+                    <h3>{{ topic }}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="post-list">
+                        <ul class="list-group">
+                            {% for post in impactful_posts[topic] %}
+                                {% set post_index = loop.index0 %}
+                                <li class="list-group-item">
+                                    <div>
+                                        <button class="post-toggle" type="button" data-toggle="collapse" data-target="#post-{{ topic_index }}-{{ post_index }}" aria-expanded="false" aria-controls="post-{{ topic_index }}-{{ post_index }}">
+                                            View Post {{ loop.index }}
+                                        </button>
+                                        <div id="post-{{ topic_index }}-{{ post_index }}" class="collapse">
+                                            <p>{{ post }}</p>
+                                        </div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white text-center py-3">
+        &copy; {{ current_year }} Comcast Dashboard. All rights reserved.
+    </footer>
+
+    <!-- Include Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Expand/Collapse All Script -->
+    <script type="text/javascript">
+        $('#expand-all').click(function() {
+            $('.collapse').collapse('show');
+        });
+        $('#collapse-all').click(function() {
+            $('.collapse').collapse('hide');
+        });
+    </script>
+
+    <!-- JavaScript Code for Charts -->
     <script type="text/javascript">
         // Prepare data for interactive charts
         var topicLabels = {{ topic_labels | safe }};
@@ -79,6 +204,7 @@
         var sentimentByTopic = {{ sentiment_by_topic | safe }};
         var dailyTrends = {{ daily_trends | safe }};
         var sentimentTrends = {{ sentiment_trends | safe }};
+        var forecastData = {{ forecast_data | safe }};
 
         // Initialize selected topics (all topics by default)
         var selectedTopics = topicLabels.slice();
@@ -139,12 +265,15 @@
                 title: 'Sentiment Distribution by Topic',
                 xaxis: { title: 'Topics', tickangle: -45, automargin: true },
                 yaxis: { title: 'Number of Posts' },
-                margin: { b: 150 }
+                margin: { b: 150 },
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: '#f8f9fa',
+                font: { color: '#343a40' }
             };
             Plotly.newPlot('sentiment-by-topic-chart', data, layout);
 
             // Update Topic Trends Over Time
-            var dates = dailyTrends['created_date'];
+            var dates = dailyTrends['date'];
             var trendData = [];
             for (var i = 0; i < topicLabels.length; i++) {
                 var topic = topicLabels[i];
@@ -159,8 +288,15 @@
             }
             var trendLayout = {
                 title: 'Daily Complaint Trends by Topic',
-                xaxis: { title: 'Date' },
-                yaxis: { title: 'Number of Complaints' }
+                xaxis: {
+                    title: 'Date',
+                    type: 'date',
+                    tickformat: '%Y-%m-%d'
+                },
+                yaxis: { title: 'Number of Complaints' },
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: '#f8f9fa',
+                font: { color: '#343a40' }
             };
             Plotly.newPlot('topic-trends-chart', trendData, trendLayout);
 
@@ -189,10 +325,20 @@
             }
             var trendLayout = {
                 title: 'Sentiment Trends Over Time',
-                xaxis: { title: 'Date' },
-                yaxis: { title: 'Number of Posts' }
+                xaxis: {
+                    title: 'Date',
+                    type: 'date',
+                    tickformat: '%Y-%m-%d'
+                },
+                yaxis: { title: 'Number of Posts' },
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: '#f8f9fa',
+                font: { color: '#343a40' }
             };
             Plotly.newPlot('sentiment-trends-chart', trendData, trendLayout);
+
+            // Update Forecast Chart
+            Plotly.react('forecast-chart', generateForecastData(), forecastLayout);
         }
 
         // Event listener for the update button
@@ -210,7 +356,10 @@
             title: 'Topic Distribution',
             xaxis: { title: 'Topics', tickangle: -45, automargin: true },
             yaxis: { title: 'Number of Posts' },
-            margin: { b: 150 }
+            margin: { b: 150 },
+            plot_bgcolor: '#f8f9fa',
+            paper_bgcolor: '#f8f9fa',
+            font: { color: '#343a40' }
         };
         Plotly.newPlot('topic-chart', topicData, topicLayout);
 
@@ -219,10 +368,13 @@
             labels: sentimentLabels,
             values: sentimentValues,
             type: 'pie',
-            marker: { colors: ['#d62728', '#2ca02c', '#ff7f0e'] }
+            marker: { colors: ['#d62728', '#ff7f0e', '#2ca02c'] }
         }];
         var sentimentLayout = {
-            title: 'Sentiment Distribution'
+            title: 'Sentiment Distribution',
+            plot_bgcolor: '#f8f9fa',
+            paper_bgcolor: '#f8f9fa',
+            font: { color: '#343a40' }
         };
         Plotly.newPlot('sentiment-chart', sentimentData, sentimentLayout);
 
@@ -247,12 +399,15 @@
             title: 'Sentiment Distribution by Topic',
             xaxis: { title: 'Topics', tickangle: -45, automargin: true },
             yaxis: { title: 'Number of Posts' },
-            margin: { b: 150 }
+            margin: { b: 150 },
+            plot_bgcolor: '#f8f9fa',
+            paper_bgcolor: '#f8f9fa',
+            font: { color: '#343a40' }
         };
         Plotly.newPlot('sentiment-by-topic-chart', data, layout);
 
         // Topic Trends Over Time
-        var dates = dailyTrends['created_date'];
+        var dates = dailyTrends['date'];
         var trendData = [];
         for (var i = 0; i < topicLabels.length; i++) {
             var topic = topicLabels[i];
@@ -265,8 +420,15 @@
         }
         var trendLayout = {
             title: 'Daily Complaint Trends by Topic',
-            xaxis: { title: 'Date' },
-            yaxis: { title: 'Number of Complaints' }
+            xaxis: {
+                title: 'Date',
+                type: 'date',
+                tickformat: '%Y-%m-%d'
+            },
+            yaxis: { title: 'Number of Complaints' },
+            plot_bgcolor: '#f8f9fa',
+            paper_bgcolor: '#f8f9fa',
+            font: { color: '#343a40' }
         };
         Plotly.newPlot('topic-trends-chart', trendData, trendLayout);
 
@@ -295,17 +457,73 @@
         }
         var trendLayout = {
             title: 'Sentiment Trends Over Time',
-            xaxis: { title: 'Date' },
-            yaxis: { title: 'Number of Posts' }
+            xaxis: {
+                title: 'Date',
+                type: 'date',
+                tickformat: '%Y-%m-%d'
+            },
+            yaxis: { title: 'Number of Posts' },
+            plot_bgcolor: '#f8f9fa',
+            paper_bgcolor: '#f8f9fa',
+            font: { color: '#343a40' }
         };
         Plotly.newPlot('sentiment-trends-chart', trendData, trendLayout);
 
-        // Debugging: Log data structures
-        console.log('Topic Labels:', topicLabels);
-        console.log('Sentiment Labels:', sentimentLabels);
-        console.log('Sentiment By Topic:', sentimentByTopic);
-        console.log('Daily Trends:', dailyTrends);
-        console.log('Sentiment Trends:', sentimentTrends);
+        // Forecast Chart
+        function generateForecastData() {
+            var traceActual = {
+                x: forecastData.actual_dates,
+                y: forecastData.actual,
+                mode: 'lines',
+                name: 'Actual'
+            };
+
+            var traceForecast = {
+                x: forecastData.dates,
+                y: forecastData.forecast,
+                mode: 'lines',
+                name: 'Forecast'
+            };
+
+            var traceUpper = {
+                x: forecastData.dates,
+                y: forecastData.upper,
+                mode: 'lines',
+                name: 'Upper Confidence Interval',
+                line: { dash: 'dot', width: 1 },
+                marker: { color: '#cccccc' },
+                showlegend: false
+            };
+
+            var traceLower = {
+                x: forecastData.dates,
+                y: forecastData.lower,
+                mode: 'lines',
+                name: 'Lower Confidence Interval',
+                fill: 'tonexty',
+                fillcolor: 'rgba(68, 68, 68, 0.1)',
+                line: { dash: 'dot', width: 1 },
+                marker: { color: '#cccccc' },
+                showlegend: false
+            };
+
+            return [traceActual, traceForecast, traceUpper, traceLower];
+        }
+
+        var forecastLayout = {
+            title: 'Complaint Volume Forecast',
+            xaxis: {
+                title: 'Date',
+                type: 'date',
+                tickformat: '%Y-%m-%d'
+            },
+            yaxis: { title: 'Number of Complaints' },
+            plot_bgcolor: '#f8f9fa',
+            paper_bgcolor: '#f8f9fa',
+            font: { color: '#343a40' }
+        };
+
+        Plotly.newPlot('forecast-chart', generateForecastData(), forecastLayout);
     </script>
 </body>
 </html>
